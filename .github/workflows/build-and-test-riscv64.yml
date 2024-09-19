@@ -56,7 +56,7 @@ jobs: # 设置一系列工作
             -DCMAKE_TOOLCHAIN_FILE=$(pwd)/toolchains/native-llvm.cmake \
             ${COMMON_CMAKE_FLAGS} \
             ${EXTRA_CMAKE_FLAGS}
-          cmake --build build-native
+          cmake --build _build-native
           cmake --install _builde-native
 
       - name: Upload build-native-llvm artifacts # 将本次编译安装结果上传至工作流中，供工作流中其他工作使用

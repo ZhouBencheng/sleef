@@ -2,7 +2,7 @@
 name: "Linux Build & Test"
 
 on:
-  push:
+  #push:
   pull_request:
 
 concurrency:

@@ -2,7 +2,7 @@
 name: "LLVM-MinGW Cross Build"
 
 on:
-  push:
+  #push:
   pull_request:
 
 concurrency:

@@ -2,7 +2,7 @@
 name: "MSYS2 Build & Test"
 
 on:
-  push:
+  #push:
   pull_request:
 
 concurrency:

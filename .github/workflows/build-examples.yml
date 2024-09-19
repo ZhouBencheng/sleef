@@ -2,7 +2,7 @@
 name: "Build & Test Examples"
 
 on:
-  push:
+  #push:
   pull_request:
 
 concurrency:

@@ -2,7 +2,7 @@
 name: "macOS Build & Test"
 
 on:
-  push:
+  #push:
   pull_request:
 
 concurrency:
