@@ -37,7 +37,7 @@ jobs: # 设置一系列工作
       - name: Install dependencies # 在本工作中安装相关依赖
         run: |
           sudo apt-get update -y -qq
-          sudo apt-get install -y -qq gcc-${GCC_VERSION}
+          sudo apt-get install -y -qq build-essential curl ninja-build libgmp-dev libmpfr-dev
       
       - name: Install llvm # 安装llvm17
         run: |
@@ -111,7 +111,7 @@ jobs: # 设置一系列工作
         with:
           name: build-native-llvm
 
-      - name: Fix _build-native permissions # 更改编译结果中，二进制文件权限
+      - name: Fix _build-native permissions # 更改编译结果中二进制文件权限
         run: |
           chmod +x _build-native/bin/*
 
