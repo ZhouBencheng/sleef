@@ -129,7 +129,7 @@ jobs: # 设置一系列工作
           EXTRA_CMAKE_FLAGS=""
           EXTRA_CMAKE_FLAGS="${EXTRA_CMAKE_FLAGS} -DSLEEF_ENFORCE_RVVM1=ON -DSLEEF_ENFORCE_RVVM2=ON"
 
-          cmake -S . -B _build_riscv64 -GNinja \
+          cmake -S . -B _build-riscv64 -GNinja \
             -DCMAKE_INSTALL_PREFIX="$(pwd)/_install-riscv64" \
             -DCMAKE_TOOLCHAIN_FILE=$(pwd)/toolchains/riscv64-llvm.cmake \
             -DCMAKE_SYSROOT=$(pwd)/sysroot \
