@@ -167,7 +167,7 @@ jobs: # 设置一系列工作
           persist-credentials: false
 
       - name: Setup QEMU # 在原生平台中设置qemu-riscv64的docker容器
-        uses: docker/setup-qemu-action@3.0.0
+        uses: docker/setup-qemu-action@v3.0.0
         with:
           platform: riscv64
       
