@@ -73,7 +73,7 @@ jobs: # 设置一系列工作
     needs: [build-native]  # 本工作依赖于build-native工作的完成
     name: build-riscv64-llvm # 本工作名称为build-riscv64-llvm，显示在github aciton页面中
     steps: # 定义本工作的一系列步骤
-      - uses: actions/checkout@4.1.1 # 第一步，检出仓库代码到当前工作中
+      - uses: actions/checkout@v4.1.1 # 第一步，检出仓库代码到当前工作中
         with:
           persist-credentials: false
       
