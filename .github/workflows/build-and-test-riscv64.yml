@@ -107,7 +107,7 @@ jobs: # 设置一系列工作
           rm -rf sysroot/usr/libexec/gcc
 
       - name: Download build-native-llvm artifacts # 下载build-native工作中上传的编译结果到本工作中
-        uses: actions/download-artifacts@v3
+        uses: actions/download-artifact@v3
         with:
           name: build-native-llvm
 
@@ -179,12 +179,12 @@ jobs: # 设置一系列工作
           cat /proc/cpuinfo
 
       - name: Download build-native-llvm artifacts
-        uses: actions/download-artifacts@v3
+        uses: actions/download-artifact@v3
         with:
           name: build-native-llvm
 
       - name: Download build-riscv64-llvm artifacts
-        uses: actions/download-artifacts@v3
+        uses: actions/download-artifact@v3
         with:
           name: build-riscv64-llvm
 
