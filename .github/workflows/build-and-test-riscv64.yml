@@ -208,7 +208,7 @@ jobs: # 设置一系列工作
           if [[ -n "${{ matrix.qemu_cpu }}"]]; then
             export QEMU_CPU="${{ matrix.qemu_cpu }}"
           fi
-          cd _build_riscv64
+          cd _build-riscv64
           ctest -j$(nproc)
 
       - name: Upload test-riscv64-llvm-${{ strategy.job-index }} artifacts
