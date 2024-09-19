@@ -1,7 +1,5 @@
 # SLEEF
 
-> This is tested for person.
-
 [![DOI:10.1109/TPDS.2019.2960333](http://img.shields.io/badge/DOI-10.1109/TPDS.2019.2960333-blue.svg)](https://ieeexplore.ieee.org/document/8936472)
 [![License](https://img.shields.io/badge/License-Boost_1.0-lightblue.svg)](https://www.boost.org/LICENSE_1_0.txt)
 ![CMake](https://img.shields.io/badge/cmake-v3.18+-yellow.svg)
