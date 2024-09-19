@@ -204,8 +204,7 @@ jobs: # 设置一系列工作
         env:
           CTEST_OUTPUT_ON_FAILURE: "TRUE"
         run: |
-          # 导入QEMU_CPU环境变量，设置QEMU容器应该模拟什么平台
-          if [[ -n "${{ matrix.qemu_cpu }}"]]; then
+          if [[ -n "${{ matrix.qemu_cpu }}" ]]; then
             export QEMU_CPU="${{ matrix.qemu_cpu }}"
           fi
           cd _build-riscv64
