@@ -129,7 +129,7 @@ jobs:
     runs-on: ubuntu-latest
     needs: [build-native]
     strategy:
-      fail-fast: false
+      fail-fast: false # 并行作业中，存在作业失败不影响其他作业继续运行
       matrix:
         arch: [aarch64, armhf, ppc64el, s390x, riscv64]
         compiler: [gcc, llvm]

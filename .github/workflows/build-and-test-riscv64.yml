@@ -1,0 +1,212 @@
+name: RISCV64 Build & Test # 定义当前工作流的名称，显示在Action页面中的名称
+
+on: # push事件和PR事件触发当前工作流
+  push:
+  pull_request:
+
+concurrency: # 规定当前工作流的并发规则
+  group: ${{ github.workflow }}-${{ github.ref }} # 并发组名称：工作流名称+Git引用（branch or tag）
+  cancel-in-progress: true # 同一并发组中有新的工作流触发，取消当前正在运行的实例
+
+permissions: # 设置当前工作流对代码仓库的访问权限
+  contents: read # 当前工作流对仓库仅有读取权限
+
+env: # 此处定义的环境变量可以在本工作流中随处可用
+  LLVM_VERSION: "17"
+  GCC_VERSION: "11"
+  COMMON_CMAKE_FLAGS: > #YAML中‘>’表示折叠文本，将多行文本合并为单行字符串
+    -DSLEEF_SHOW_CONFIG=1
+    -DSLEEF_BUILD_GNUABI_LIBS=OFF
+    -DSLEEF_BUILD_INLINE_HEADERS=ON
+    -DSLEEF_BUILD_DFT=ON
+    -DSLEEF_BUILD_QUAD=ON
+    -DSLEEF_BUILD_SCALAR_LIB=ON
+    -DSLEEF_BUILD_STATIC_TEST_BINS=ON
+    -DSLEEF_ENFORCE_TESTER=ON
+    -DSLEEF_ENFORCE_TESTER3=ON
+
+jobs: # 设置一系列工作
+  build-native: # 本地构建工作——build-native
+    runs-on: ubuntu-latest # 本工作在ubuntu运行
+    name: build-native-llvm # 本工作名称为build-native-llvm，显示在github action网页
+    steps:
+      - uses: actions/checkout@v4.1.1 # 将代码检出到本工作环境中
+        with: 
+          persist-credentials: false
+      
+      - name: Install dependencies # 在本工作中安装相关依赖
+        run: |
+          sudo apt-get update -y -qq
+          sudo apt-get install -y -qq gcc-${GCC_VERSION}
+      
+      - name: Install llvm # 安装llvm17
+        run: |
+          curl -o llvm.sh https://apt.llvm.org/llvm.sh
+          chmod u+x llvm.sh
+          sudo ./llvm.sh ${LLVM_VERSION}
+          sudo ln -srf $(which clang-${LLVM_VERSION}) /usr/bin/clang
+          rm llvm.sh
+
+      - name: Build native # 本地构建、编译、安装SLEEF
+        shell: bash -ex -o pipefail {0}
+        run: |
+          EXTRA_CMAKE_FLAGS="-DSLEEF_ENFORCE_SSE2=ON -DSLEEF_ENFORCE_SSE4=ON -DSLEEF_ENFORCE_AVX=ON -DSLEEF_ENFORCE_AVX2=ON -DSLEEF_ENFORCE_AVX512=ON -DSLEEF_ENFORCE_FMA4=ON"
+          cmake -S . -B _build-native -GNinja \
+            -DCMAKE_INSTALL_PREFIX="$(pwd)/_isntall-native" \
+            -DCMAKE_TOOLCHAIN_FILE=$(pwd)/toolchains/native-llvm.cmake \
+            ${COMMON_CMAKE_FLAGS} \
+            ${EXTRA_CMAKE_FLAGS}
+          cmake --build build-native
+          cmake --install _builde-native
+
+      - name: Upload build-native-llvm artifacts # 将本次编译安装结果上传至工作流中，供工作流中其他工作使用
+        uses: actions/upload-artifact@v3
+        with:
+          name: build-native-llvm
+          path: |
+            _build-*
+            _install-*
+        if: always()
+
+  build-cross: # 交叉编译工作——build-cross，该名称在本文件中独立标识
+    runs-on: ubuntu-latest # 本工作运行在ubuntu
+    needs: [build-native]  # 本工作依赖于build-native工作的完成
+    name: build-riscv64-llvm # 本工作名称为build-riscv64-llvm，显示在github aciton页面中
+    steps: # 定义本工作的一系列步骤
+      - uses: actions/checkout@4.1.1 # 第一步，检出仓库代码到当前工作中
+        with:
+          persist-credentials: false
+      
+      - name: Install dependencies # 第二步，安装本次工作中需要的依赖软件
+        run: | 
+          sudo apt-get update -y -qq
+          sudo apt-get install -y -qq build-essential curl ninja-build libgmp-dev libmpfr-dev debootstrap
+    
+      - name: Install llvm # 安装llvm17
+        run: |
+          curl -o llvm.sh https://apt.llvm.org/llvm.sh
+          chmod u+x llvm.sh
+          sudo ./llvm.sh ${LLVM_VERSION}
+          sudo ln -srf $(which clang-${LLVM_VERSION}) /usr/bin/clang
+          rm llvm.sh
+
+      - name: Setup QEMU # 安装QEMU的docker镜像，使本工作能够运行非原生架构的二进制文件
+        uses: docker/setup-qemu-action@v3.0.0
+        with:
+          platform: riscv64
+      
+      - name: Create sysroot # 生成目标架构文件系统，方便在原生平台上交叉编译
+        run: |
+          sudo debootstrap --arch=riscv64 --verbose --verbose --include=fakeroot,symlinks,libmpfr-dev,libssl-dev --resolve-deps --variant=minbase --components=main,universe focal sysroot
+          # 删除无用文件以减小缓存
+          sudo chroot sysroot symlinks -cr .
+          sudo chown ${USER} -R sysroot
+          rm -rf sysroot/{dev,proc,run,sys,var}
+          rm -rf sysroot/usr/{sbin,bin,share}
+          rm -rf sysroot/usr/lib/{apt,gcc,udev,systemd}
+          rm -rf sysroot/usr/libexec/gcc
+
+      - name: Download build-native-llvm artifacts # 下载build-native工作中上传的编译结果到本工作中
+        uses: actions/download-artifacts@v3
+        with:
+          name: build-native-llvm
+
+      - name: Fix _build-native permissions # 更改编译结果中，二进制文件权限
+        run: |
+          chmod +x _build-native/bin/*
+
+      - name: Build riscv64 # 构建riscv64目标架构的SLEEF
+        shell: bash -ex -o pipefail {0}
+        run: |
+          EXTRA_CMAKE_FLAGS=""
+          EXTRA_CMAKE_FLAGS="${EXTRA_CMAKE_FLAGS} -DSLEEF_ENFORCE_RVVM1=ON -DSLEEF_ENFORCE_RVVM2=ON"
+
+          cmake -S . -B _build_riscv64 -GNinja \
+            -DCMAKE_INSTALL_PREFIX="$(pwd)/_install-riscv64" \
+            -DCMAKE_TOOLCHAIN_FILE=$(pwd)/toolchains/riscv64-llvm.cmake \
+            -DCMAKE_SYSROOT=$(pwd)/sysroot \
+            -DNATIVE_BUILD_DIR="$(pwd)/_build-native" \
+            ${COMMON_CMAKE_FLAGS} \
+            ${EXTRA_CMAKE_FLAGS}
+          cmake --build _build-riscv64
+          cmake --install _build-riscv64
+
+      - name: Upload build-riscv64-llvm artifacts # 将交叉编译结果上传至本工作流中
+        uses: actions/upload-artifact@v3
+        with:
+          name: build-riscv64-llvm
+          path: |
+            _build-riscv64
+            _install-riscv64
+        if: always()
+  
+  test-cross: # 交叉测试
+    if: github.event_name == 'push' && github.ref_name == 'master' # 只有在master主分支上发生push才能触发本工作
+    runs-on: ubuntu-latest
+    needs: [build-native, build-cross]
+    strategy: # 使用矩阵策略，在不同的riscv64CPU中运行测试
+      fail-fast: false
+      matrix:
+        include:
+          - arch: riscv64
+            compiler: llvm
+            qemu_cpu: "rv64,zba=true,zbb=true,zbs=true,v=false"
+          - arch: riscv64
+            compiler: llvm
+            qemu_cpu: "rv64,zba=true,zbb=true,zbs=true,v=true,vlen=128,elen=64,vext_spec=v1.0"
+          - arch: riscv64
+            compiler: llvm
+            qemu_cpu: "rv64,zba=true,zbb=true,zbs=true,v=true,vlen=256,elen=64,vext_spec=v1.0"
+          - arch: riscv64
+            compiler: llvm
+            qemu_cpu: "rv64,zba=true,zbb=true,zbs=true,v=true,vlen=512,elen=64,vext_spec=v1.0"
+    name: "test-riscv64-llvm (qemu_cpu: \"${{ matrix.qemu_cpu }}\")"
+    steps:
+      - uses: actions/checkout@v4.1.1 # 将仓库代码检出到当前工作中
+        with:
+          persist-credentials: false
+
+      - name: Setup QEMU # 在原生平台中设置qemu-riscv64的docker容器
+        uses: docker/setup-qemu-action@3.0.0
+        with:
+          platform: riscv64
+      
+      - name: Install denpendencies
+        run: sudo apt-get update -y -qq && sudo apt-get install -y -qq libgmp-dev libmpfr-dev
+        
+      - name: Print host CPU info
+        run: |
+          cat /proc/cpuinfo
+
+      - name: Download build-native-llvm artifacts
+        uses: actions/download-artifacts@v3
+        with:
+          name: build-native-llvm
+
+      - name: Download build-riscv64-llvm artifacts
+        uses: actions/download-artifacts@v3
+        with:
+          name: build-riscv64-llvm
+
+      - name: Fix _build-native and _build-riscv64 permissions
+        run: |
+          chmod +x _build-native/bin/* _build-riscv64/bin/*
+
+      - name: Test riscv64
+        env:
+          CTEST_OUTPUT_ON_FAILURE: "TRUE"
+        run: |
+          # 导入QEMU_CPU环境变量，设置QEMU容器应该模拟什么平台
+          if [[ -n "${{ matrix.qemu_cpu }}"]]; then
+            export QEMU_CPU="${{ matrix.qemu_cpu }}"
+          fi
+          cd _build_riscv64
+          ctest -j$(nproc)
+
+      - name: Upload test-riscv64-llvm-${{ strategy.job-index }} artifacts
+        uses: actions/upload-artifact@v3
+        with: 
+          name: test-riscv64-llvm-${{ strategy.job-index }}
+          path: |
+            _build-riscv64/Testing
+        if: always()
